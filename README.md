@@ -2,21 +2,21 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>المساحي الذكي 2.5</title>
+<title>المساحي الذكي 2.6</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
 <style>
 body{margin:0;font-family:Tahoma;background:#000;color:white;}
-header{background:linear-gradient(to right,#FF0000,#008000);color:white;padding:15px;text-align:center;font-size:22px;}
-#panel{padding:15px;background:#000033;}
+header{background:linear-gradient(to right,#FF8C00,#000000);color:white;padding:15px;text-align:center;font-size:22px;}
+#panel{padding:15px;background:#333333;}
 input,select,button,textarea{width:100%;padding:8px;margin:5px 0;font-size:15px;}
-button{background:#FF0000;color:white;border:none;cursor:pointer;font-weight:bold;}
-#map{height:60vh;border:2px solid #008000;margin-top:5px;}
+button{background:#FF8C00;color:white;border:none;cursor:pointer;font-weight:bold;}
+#map{height:60vh;border:2px solid #FF8C00;margin-top:5px;}
 #result{margin-top:10px;}
 </style>
 </head>
 <body>
-<header>📍 المشروع المساحي الذكي 2.5</header>
+<header>📍 المشروع المساحي الذكي 2.6</header>
 
 <div id="panel">
 نوع المشروع:
@@ -111,7 +111,7 @@ function setMap(){
 function draw2D(){
     if(!polygon) {alert("حدد Polygon أولاً"); return;}
     polygon.getLatLngs()[0].forEach(p=>{
-        L.circleMarker(p,{radius:5,color:"#FF0000"}).addTo(drawnLayer);
+        L.circleMarker(p,{radius:5,color:"#FF8C00"}).addTo(drawnLayer);
     });
     document.getElementById("result").innerHTML="✅ تم رسم 2D";
 }
