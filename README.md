@@ -52,6 +52,7 @@ drawnLayer.clearLayers();
 gridLines=[];
 cutfillResults=[];
 if(type=="sat"){map.removeLayer(osm);sat.addTo(map);}else{map.removeLayer(sat);osm.addTo(map);}
+document.getElementById("result").innerHTML="تم تحديث نوع الخريطة ✅";
 }
 
 function createPolygon(){
@@ -68,7 +69,7 @@ document.getElementById("result").innerHTML="تم إنشاء Polygon بنجاح 
 }
 
 function draw2D(){
-if(!polygon) return;
+if(!polygon) {alert("قم بإنشاء Polygon أولاً"); return;}
 polygon.getLatLngs()[0].forEach(p=>{
 L.circleMarker(p,{radius:5,color:"#FF6347"}).addTo(drawnLayer);
 });
@@ -76,7 +77,7 @@ document.getElementById("result").innerHTML="تم رسم 2D بنجاح ✅";
 }
 
 function makeGrid(){
-if(!polygon) return;
+if(!polygon) {alert("قم بإنشاء Polygon أولاً"); return;}
 let bounds=polygon.getBounds();
 let rows=6,cols=6;
 let stepLat=(bounds.getNorth()-bounds.getSouth())/rows;
@@ -90,7 +91,7 @@ document.getElementById("result").innerHTML="تم إنشاء الشبكة ✅";
 }
 
 function computeCutFill(){
-if(!polygon) return;
+if(!polygon) {alert("قم بإنشاء Polygon أولاً"); return;}
 cutfillResults=[];
 let cellsLatStep=(polygon.getBounds().getNorth()-polygon.getBounds().getSouth())/6;
 let cellsLngStep=(polygon.getBounds().getEast()-polygon.getBounds().getWest())/6;
@@ -107,7 +108,7 @@ console.table(cutfillResults);
 }
 
 function exportKML(){
-if(!polygon) return;
+if(!polygon) {alert("قم بإنشاء Polygon أولاً"); return;}
 let coords=polygon.getLatLngs()[0];
 let kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>`;
 coords.forEach(c=>{kml+=`${c.lng},${c.lat},0 `;});
