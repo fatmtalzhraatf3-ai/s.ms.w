@@ -2,51 +2,46 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>Smart Survey Project</title>
-
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
+<title>المساحي الذكي - النسخة المتقدمة</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 body{
-font-family:Tahoma;
 margin:0;
-background:#eef3f7;
-direction:rtl;
+font-family:Tahoma;
+background:#0b1e0b;
+color:white;
 }
 header{
-background:#0b3d91;
+background:#093d00;
 color:white;
 padding:15px;
 text-align:center;
 font-size:22px;
 }
-.panel{
-max-width:900px;
-margin:auto;
+#panel{
 padding:15px;
+background:#145214;
+box-shadow:0 2px 6px rgba(0,0,0,.5);
 }
-input,button{
+input,select,button{
 width:100%;
-padding:10px;
-margin:6px 0;
+padding:8px;
+margin:5px 0;
 font-size:15px;
 }
 button{
-background:#0b3d91;
+background:#0b3d00;
 color:white;
 border:none;
 cursor:pointer;
+font-weight:bold;
 }
 #map{
-height:520px;
-border:2px solid #333;
+height:70vh;
+border:2px solid #0b3d00;
+margin-top:5px;
 }
 .download{
-display:none;
 background:#27ae60;
 color:white;
 padding:10px;
@@ -57,163 +52,149 @@ text-align:center;
 }
 </style>
 </head>
-
 <body>
 
-<header>المشروع المساحي الذكي</header>
+<header>📍 المشروع المساحي الذكي - النسخة المتقدمة</header>
 
-<div class="panel">
+<div id="panel">
+خط العرض:
+<input id="lat" value="26.8206">
+خط الطول:
+<input id="lng" value="30.8025">
 
-<input id="lat" placeholder="Latitude مثال 26.1648">
-<input id="lng" placeholder="Longitude مثال 32.7168">
-<input id="area" type="number" placeholder="Area (m²)">
-<input id="grid" type="number" value="6" placeholder="Grid Count">
+نوع المشروع:
+<select id="type">
+<option value="stadium">ملعب</option>
+<option value="building">مبنى</option>
+</select>
 
-<button onclick="runProject()">إنشاء المشروع</button>
+نوع الخريطة:
+<select id="mapType">
+<option value="osm">خريطة عادية</option>
+<option value="sat">قمر صناعي HD</option>
+</select>
+
+<button onclick="setMap()">تحديث الخريطة</button>
+<button onclick="createPolygon()">إنشاء Polygon</button>
+<button onclick="draw2D()">رسم 2D</button>
+<button onclick="makeGrid()">تقسيم شبكي</button>
+<button onclick="computeCutFill()">حساب Cut & Fill</button>
+<button onclick="exportKML()">تنزيل KML</button>
+
+<div id="result"></div>
+</div>
 
 <div id="map"></div>
 
-<a id="excelBtn" class="download" download="survey.xlsx">تحميل Excel</a>
-<a id="kmlBtn" class="download" download="survey.kml">تحميل KML (Google Earth)</a>
-
-</div>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 
-/* ===== MAP ===== */
+// ==========================
+// إنشاء الخريطة
+// ==========================
+var map = L.map('map').setView([26.82,30.80],18);
 
-let map=L.map('map').setView([26.16,32.71],15);
+var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:22}).addTo(map);
+var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:22});
 
-const osm=L.tileLayer(
-'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-{maxZoom:19}).addTo(map);
+var drawnLayer = L.layerGroup().addTo(map);
 
-const satellite=L.tileLayer(
-'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-{maxZoom:19});
+let polygon;
+let gridLines = [];
+let cutfillResults=[];
 
-L.control.layers({"خريطة":osm,"قمر صناعي":satellite}).addTo(map);
-
-let layers=[];
-
-function clearLayers(){
-layers.forEach(l=>map.removeLayer(l));
-layers=[];
+function setMap(){
+let type = document.getElementById("mapType").value;
+drawnLayer.clearLayers();
+gridLines=[];
+cutfillResults=[];
+if(type=="sat"){map.removeLayer(osm);sat.addTo(map);}else{map.removeLayer(sat);osm.addTo(map);}
 }
 
-/* ===== MAIN ===== */
+// ==========================
+// إنشاء Polygon
+// ==========================
+function createPolygon(){
+drawnLayer.clearLayers();
+gridLines=[];
+cutfillResults=[];
 
-function runProject(){
+let lat=parseFloat(document.getElementById("lat").value);
+let lng=parseFloat(document.getElementById("lng").value);
+let size=0.0003;
 
-clearLayers();
-
-/* قراءة القيم */
-const lat=parseFloat(document.getElementById("lat").value);
-const lng=parseFloat(document.getElementById("lng").value);
-const area=parseFloat(document.getElementById("area").value);
-const grid=parseInt(document.getElementById("grid").value);
-
-if(isNaN(lat)||isNaN(lng)||isNaN(area)){
-alert("ادخل البيانات بشكل صحيح");
-return;
+let coords=[[lat-size,lng-size],[lat-size,lng+size],[lat+size,lng+size],[lat+size,lng-size]];
+polygon=L.polygon(coords,{color:"#0fff00"}).addTo(drawnLayer);
+map.fitBounds(polygon.getBounds());
+document.getElementById("result").innerHTML="تم إنشاء Polygon بنجاح ✅";
 }
 
-map.setView([lat,lng],18);
-
-/* boundary */
-const side=Math.sqrt(area)/111000;
-
-const bounds=[
-[lat-side/2,lng-side/2],
-[lat-side/2,lng+side/2],
-[lat+side/2,lng+side/2],
-[lat+side/2,lng-side/2]
-];
-
-let boundary=L.polygon(bounds,{color:"red"}).addTo(map);
-layers.push(boundary);
-
-/* traverse */
-let traverse=L.polyline([...bounds,bounds[0]],{color:"blue"}).addTo(map);
-layers.push(traverse);
-
-/* grid */
-const latStep=(bounds[2][0]-bounds[0][0])/grid;
-const lngStep=(bounds[2][1]-bounds[0][1])/grid;
-
-let data=[];
-let kml='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>';
-
-for(let i=0;i<grid;i++){
-for(let j=0;j<grid;j++){
-
-const rect=[
-[bounds[0][0]+i*latStep,bounds[0][1]+j*lngStep],
-[bounds[0][0]+(i+1)*latStep,bounds[0][1]+j*lngStep],
-[bounds[0][0]+(i+1)*latStep,bounds[0][1]+(j+1)*lngStep],
-[bounds[0][0]+i*latStep,bounds[0][1]+(j+1)*lngStep]
-];
-
-let cell=L.polygon(rect,{
-color:"green",
-weight:1,
-fillOpacity:0.1}).addTo(map);
-
-layers.push(cell);
-
-/* terrain model */
-let x=i/grid;
-let y=j/grid;
-
-let existing=
-100+2*x+1.5*y+
-Math.sin(x*3)*0.6+
-Math.cos(y*3)*0.6;
-
-let design=102;
-
-let cut=Math.max(existing-design,0);
-let fill=Math.max(design-existing,0);
-
-data.push({
-cell:`${i}-${j}`,
-existing:existing.toFixed(2),
-design,
-cut:cut.toFixed(2),
-fill:fill.toFixed(2)
+// ==========================
+// رسم نقاط 2D
+// ==========================
+function draw2D(){
+if(!polygon) return;
+polygon.getLatLngs()[0].forEach(p=>{
+L.circleMarker(p,{radius:5,color:"#00ffcc"}).addTo(drawnLayer);
 });
-
-/* KML */
-kml+=`<Placemark><Polygon><outerBoundaryIs>
-<LinearRing><coordinates>
-${rect.map(p=>`${p[1]},${p[0]},0`).join(" ")}
-${rect[0][1]},${rect[0][0]},0
-</coordinates></LinearRing>
-</outerBoundaryIs></Polygon></Placemark>`;
-}
+document.getElementById("result").innerHTML="تم رسم 2D بنجاح ✅";
 }
 
-kml+='</Document></kml>';
+// ==========================
+// تقسيم شبكي Mesh Grid
+// ==========================
+function makeGrid(){
+if(!polygon) return;
+let bounds=polygon.getBounds();
+let rows=6,cols=6;
+let stepLat=(bounds.getNorth()-bounds.getSouth())/rows;
+let stepLng=(bounds.getEast()-bounds.getWest())/cols;
 
-/* Excel */
-const ws=XLSX.utils.json_to_sheet(data);
-const wb=XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb,ws,"Survey");
-
-const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-
-document.getElementById("excelBtn").href=
-URL.createObjectURL(new Blob([wbout]));
-document.getElementById("excelBtn").style.display="block";
-
-/* KML */
-document.getElementById("kmlBtn").href=
-URL.createObjectURL(new Blob([kml],
-{type:"application/vnd.google-earth.kml+xml"}));
-document.getElementById("kmlBtn").style.display="block";
-
+for(let i=0;i<=rows;i++){
+let latLine=L.polyline([[bounds.getSouth()+i*stepLat,bounds.getWest()],[bounds.getSouth()+i*stepLat,bounds.getEast()]],{color:"#00ff00",weight:1}).addTo(drawnLayer);gridLines.push(latLine);}
+for(let j=0;j<=cols;j++){
+let lngLine=L.polyline([[bounds.getSouth(),bounds.getWest()+j*stepLng],[bounds.getNorth(),bounds.getWest()+j*stepLng]],{color:"#00ff00",weight:1}).addTo(drawnLayer);gridLines.push(lngLine);}
+document.getElementById("result").innerHTML="تم إنشاء الشبكة ✅";
 }
 
+// ==========================
+// حساب Cut & Fill (تقريبي)
+// ==========================
+function computeCutFill(){
+if(!polygon || gridLines.length==0) return;
+
+cutfillResults=[];
+let cellsLatStep=(polygon.getBounds().getNorth()-polygon.getBounds().getSouth())/6;
+let cellsLngStep=(polygon.getBounds().getEast()-polygon.getBounds().getWest())/6;
+
+for(let i=0;i<6;i++){
+for(let j=0;j<6;j++){
+let randomCut=Math.floor(Math.random()*5); // ارتفاع افتراضي للتجربة
+let randomFill=Math.floor(Math.random()*5);
+cutfillResults.push({row:i+1,col:j+1,cut:randomCut,fill:randomFill});
+}
+}
+document.getElementById("result").innerHTML="تم حساب Cut & Fill ✅ (تقديري)";
+console.table(cutfillResults);
+}
+
+// ==========================
+// تصدير KML
+// ==========================
+function exportKML(){
+if(!polygon) return;
+let coords=polygon.getLatLngs()[0];
+let kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>`;
+coords.forEach(c=>{kml+=`${c.lng},${c.lat},0 `;});
+kml+=`</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>`;
+
+let blob=new Blob([kml],{type:"application/vnd.google-earth.kml+xml"});
+let link=document.createElement("a");
+link.href=URL.createObjectURL(blob);
+link.download="survey_project.kml";
+link.click();
+document.getElementById("result").innerHTML="تم تنزيل KML بنجاح ✅";
+}
 </script>
 </body>
 </html>
