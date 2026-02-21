@@ -2,7 +2,7 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>المشروع المساحي الذكي GIS</title>
+<title>Smart Survey Project</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -22,12 +22,12 @@ background:#0b3d91;
 color:white;
 padding:15px;
 text-align:center;
-font-size:24px;
+font-size:22px;
 }
 .panel{
-padding:15px;
 max-width:900px;
 margin:auto;
+padding:15px;
 }
 input,button{
 width:100%;
@@ -45,34 +45,36 @@ cursor:pointer;
 height:520px;
 border:2px solid #333;
 }
-a{
+.download{
 display:none;
 background:#27ae60;
 color:white;
 padding:10px;
-margin-top:8px;
+margin-top:10px;
 text-decoration:none;
+display:block;
+text-align:center;
 }
 </style>
 </head>
 
 <body>
 
-<header>المشروع المساحي الذكي — GIS Edition</header>
+<header>المشروع المساحي الذكي</header>
 
 <div class="panel">
 
 <input id="lat" placeholder="Latitude مثال 26.1648">
 <input id="lng" placeholder="Longitude مثال 32.7168">
-<input id="area" type="number" placeholder="Area m²">
-<input id="grid" type="number" value="6" placeholder="Grid Size">
+<input id="area" type="number" placeholder="Area (m²)">
+<input id="grid" type="number" value="6" placeholder="Grid Count">
 
 <button onclick="runProject()">إنشاء المشروع</button>
 
 <div id="map"></div>
 
-<a id="excelBtn" download="survey.xlsx">تحميل Excel</a>
-<a id="kmlBtn" download="survey.kml">تحميل KML</a>
+<a id="excelBtn" class="download" download="survey.xlsx">تحميل Excel</a>
+<a id="kmlBtn" class="download" download="survey.kml">تحميل KML (Google Earth)</a>
 
 </div>
 
@@ -105,10 +107,16 @@ function runProject(){
 
 clearLayers();
 
-const lat=parseFloat(lat.value);
-const lng=parseFloat(lng.value);
-const area=parseFloat(area.value);
-const grid=parseInt(grid.value);
+/* قراءة القيم */
+const lat=parseFloat(document.getElementById("lat").value);
+const lng=parseFloat(document.getElementById("lng").value);
+const area=parseFloat(document.getElementById("area").value);
+const grid=parseInt(document.getElementById("grid").value);
+
+if(isNaN(lat)||isNaN(lng)||isNaN(area)){
+alert("ادخل البيانات بشكل صحيح");
+return;
+}
 
 map.setView([lat,lng],18);
 
@@ -133,17 +141,10 @@ layers.push(traverse);
 const latStep=(bounds[2][0]-bounds[0][0])/grid;
 const lngStep=(bounds[2][1]-bounds[0][1])/grid;
 
-let elevationGrid=[];
 let data=[];
-
-const baseHeight=100;
-const contourInterval=0.5;
-
 let kml='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>';
 
 for(let i=0;i<grid;i++){
-elevationGrid[i]=[];
-
 for(let j=0;j<grid;j++){
 
 const rect=[
@@ -156,82 +157,39 @@ const rect=[
 let cell=L.polygon(rect,{
 color:"green",
 weight:1,
-fillOpacity:0.05}).addTo(map);
+fillOpacity:0.1}).addTo(map);
 
 layers.push(cell);
 
-/* realistic DEM */
+/* terrain model */
 let x=i/grid;
 let y=j/grid;
 
-let terrain=
-Math.sin(x*3*Math.PI)*0.8+
-Math.cos(y*3*Math.PI)*0.6;
-
 let existing=
-baseHeight+2.5*x+1.8*y+terrain;
+100+2*x+1.5*y+
+Math.sin(x*3)*0.6+
+Math.cos(y*3)*0.6;
 
-let design=baseHeight+2;
+let design=102;
 
 let cut=Math.max(existing-design,0);
 let fill=Math.max(design-existing,0);
 
-elevationGrid[i][j]=existing;
-
 data.push({
 cell:`${i}-${j}`,
 existing:existing.toFixed(2),
-design:design,
+design,
 cut:cut.toFixed(2),
 fill:fill.toFixed(2)
 });
 
-/* KML polygon */
+/* KML */
 kml+=`<Placemark><Polygon><outerBoundaryIs>
 <LinearRing><coordinates>
 ${rect.map(p=>`${p[1]},${p[0]},0`).join(" ")}
 ${rect[0][1]},${rect[0][0]},0
 </coordinates></LinearRing>
 </outerBoundaryIs></Polygon></Placemark>`;
-}
-}
-
-/* ===== CONTOUR ===== */
-
-let minZ=999,maxZ=-999;
-
-for(let i=0;i<grid;i++){
-for(let j=0;j<grid;j++){
-minZ=Math.min(minZ,elevationGrid[i][j]);
-maxZ=Math.max(maxZ,elevationGrid[i][j]);
-}
-}
-
-for(let level=Math.floor(minZ);
-level<=maxZ;
-level+=contourInterval){
-
-let pts=[];
-
-for(let i=0;i<grid;i++){
-for(let j=0;j<grid;j++){
-
-if(Math.abs(elevationGrid[i][j]-level)<0.2){
-
-let latp=bounds[0][0]+i*latStep;
-let lngp=bounds[0][1]+j*lngStep;
-
-pts.push([latp,lngp]);
-}
-}
-}
-
-if(pts.length>2){
-let contour=L.polyline(pts,{
-color:"#8B4513",
-weight:2}).addTo(map);
-
-layers.push(contour);
 }
 }
 
@@ -244,14 +202,15 @@ XLSX.utils.book_append_sheet(wb,ws,"Survey");
 
 const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
 
-excelBtn.href=URL.createObjectURL(new Blob([wbout]));
-excelBtn.style.display="inline-block";
+document.getElementById("excelBtn").href=
+URL.createObjectURL(new Blob([wbout]));
+document.getElementById("excelBtn").style.display="block";
 
 /* KML */
-kmlBtn.href=URL.createObjectURL(
-new Blob([kml],{type:"application/vnd.google-earth.kml+xml"})
-);
-kmlBtn.style.display="inline-block";
+document.getElementById("kmlBtn").href=
+URL.createObjectURL(new Blob([kml],
+{type:"application/vnd.google-earth.kml+xml"}));
+document.getElementById("kmlBtn").style.display="block";
 
 }
 
