@@ -2,21 +2,21 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>المساحي الذكي 2.2</title>
+<title>المساحي الذكي 2.4</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
 <style>
 body{margin:0;font-family:Tahoma;background:#000;color:white;}
-header{background:linear-gradient(to right,#FF0000,#FF69B4);color:white;padding:15px;text-align:center;font-size:22px;}
-#panel{padding:15px;background:#330000;}
+header{background:linear-gradient(to right,#FF0000,#008000);color:white;padding:15px;text-align:center;font-size:22px;}
+#panel{padding:15px;background:#000033;}
 input,select,button,textarea{width:100%;padding:8px;margin:5px 0;font-size:15px;}
-button{background:#FF1493;color:white;border:none;cursor:pointer;font-weight:bold;}
-#map{height:60vh;border:2px solid #FF1493;margin-top:5px;}
+button{background:#FF0000;color:white;border:none;cursor:pointer;font-weight:bold;}
+#map{height:60vh;border:2px solid #008000;margin-top:5px;}
 #result{margin-top:10px;}
 </style>
 </head>
 <body>
-<header>📍 المشروع المساحي الذكي 2.2</header>
+<header>📍 المشروع المساحي الذكي 2.4</header>
 
 <div id="panel">
 نوع المشروع:
@@ -35,6 +35,7 @@ button{background:#FF1493;color:white;border:none;cursor:pointer;font-weight:bol
 <button onclick="calculateArea()">حساب المساحة</button>
 <button onclick="exportKML()">تنزيل KML</button>
 <button onclick="exportExcel()">تنزيل Excel</button>
+<button onclick="searchCoordinates()">بحث بالإحداثيات</button>
 <div id="result"></div>
 </div>
 
@@ -90,7 +91,7 @@ function drawFromCoords(){
     drawnLayer.clearLayers();
     gridLines=[];
     cutfillResults=[];
-    polygon=L.polygon(latlngs,{color:"#FF1493"}).addTo(drawnItems);
+    polygon=L.polygon(latlngs,{color:"#008000"}).addTo(drawnItems);
     drawnLayer.addLayer(polygon);
     map.fitBounds(polygon.getBounds());
     document.getElementById("result").innerHTML="✅ تم رسم Polygon من الإحداثيات";
@@ -193,6 +194,22 @@ function exportExcel(){
     XLSX.utils.book_append_sheet(wb,ws,"CutFill");
     XLSX.writeFile(wb,"smart_survey_project.xlsx");
     document.getElementById("result").innerHTML="✅ تم تنزيل ملف Excel";
+}
+
+// زر البحث عن نقطة بالإحداثيات
+function searchCoordinates() {
+    let input = prompt("ادخل الاحداثيات بالصيغة: lat,lng مثلا: 26.82,30.80");
+    if(!input) return;
+    let parts = input.split(",");
+    if(parts.length != 2){alert("صيغة الإحداثيات خاطئة"); return;}
+    let lat = parseFloat(parts[0].trim());
+    let lng = parseFloat(parts[1].trim());
+    if(isNaN(lat) || isNaN(lng)){alert("الإحداثيات غير صالحة"); return;}
+    
+    if(window.searchMarker) map.removeLayer(window.searchMarker);
+    window.searchMarker = L.marker([lat,lng]).addTo(map);
+    map.setView([lat,lng], 20);
+    document.getElementById("result").innerHTML=`✅ تم العثور على النقطة: ${lat}, ${lng}`;
 }
 </script>
 </body>
